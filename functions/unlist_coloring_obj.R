@@ -11,7 +11,7 @@ unlist_coloring_obj <- function(list_boundries){
   list_list_2_list_df = lapply(list_list_2_list_df,data.frame)
   
   ## now lets give those replicates some names
-  names(list_list_2_list_df) <- paste0('repli_',1:length(testing2))
+  names(list_list_2_list_df) <- paste0('repli_',1:length(list_list_2_list_df))
   
   ## getting the lenght of replicates
   leng_list = length(list_list_2_list_df)
@@ -22,8 +22,8 @@ unlist_coloring_obj <- function(list_boundries){
   df_Limits <- matrix(NA,nrow =nrows ,ncol=leng_list)
   
   for(ii in 1:leng_list){
-    df_clustRegion[,ii] = testing2[[ii]]$clustRegion
-    df_Limits[,ii] = testing2[[ii]]$limits
+    df_clustRegion[,ii] = list_list_2_list_df[[ii]]$clustRegion
+    df_Limits[,ii] = list_list_2_list_df[[ii]]$limits
   }
   
   df_clustRegion = cbind.data.frame(
@@ -49,7 +49,7 @@ unlist_coloring_obj <- function(list_boundries){
   ## the order of the output is pretty inportant and should be binded to a grid_base.
   return(
     list(
-      regionCluster = list_region,
+      regionCluster = list_regions,
       regionLimits = list_Limits
     )
   )

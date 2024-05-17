@@ -26,56 +26,58 @@ list_AitDist_clean = Filter(function(x) dim(x)[1] == 165, list_AitDist)
 
 df_evaluation <- data.table::rbindlist(lapply(list_AitDist_clean[1:200], eval_clustering))
 
-#saveRDS(df_evaluation,paste0(savingdir,'/','df_evaluation'))
-df_evaluation = readRDS(paste0(savingdir,'/','df_evaluation'))
+saveRDS(df_evaluation,paste0(savingdir,'/','df_evaluation'))
 
-df_summary = bind_rows(
-  df_evaluation %>% 
-  group_by(ncluster,method,alpha,DistMetric) %>% 
-  summarise_all(.funs = mean) %>% mutate(summary_metric='Mean') %>% ungroup() %>% 
-  pivot_longer(cols = -c(ncluster,method,alpha,DistMetric,summary_metric),names_to = 'Metric'),
-  
-  df_evaluation %>% 
-  group_by(ncluster,method,alpha,DistMetric) %>% 
-  summarise_all(.funs = sd) %>% mutate(summary_metric='SD') %>% ungroup() %>% 
-  pivot_longer(cols = -c(ncluster,method,alpha,DistMetric,summary_metric),names_to = 'Metric')
-)
-
-df_summary %>% filter(Metric=='within_sum') %>% select(-Metric) %>% 
-  pivot_wider(id_cols = ncluster:DistMetric,names_from = summary_metric ) %>% 
-  ggplot(aes(x=ncluster,y=Mean,color=method,fill=method,linetype=as.factor(alpha)))+
-  geom_line()+
-  geom_ribbon(aes(ymin=Mean-SD,ymax=Mean+SD),alpha=0.25)+
-  facet_grid(DistMetric~method,scales = 'free')+
-  theme_minimal()+
-  theme(legend.position = 'bottom')
-  
-
-df_summary %>% filter(Metric=='avg_within_between_dist2medoid') %>% select(-Metric) %>% 
-  pivot_wider(id_cols = ncluster:DistMetric,names_from = summary_metric ) %>% 
-  ggplot(aes(x=ncluster,y=Mean,color=method,fill=method,linetype=as.factor(alpha)))+
-  geom_line()+
-  geom_ribbon(aes(ymin=Mean-SD,ymax=Mean+SD),alpha=0.1)+
-  facet_wrap(~DistMetric,scales = 'free')+
-  theme_minimal()+
-  theme(legend.position = 'bottom')
-
-
-df_summary %>% filter(Metric=='avg_dist_between_medoids') %>% select(-Metric) %>% 
-  pivot_wider(id_cols = ncluster:DistMetric,names_from = summary_metric ) %>% 
-  ggplot(aes(x=ncluster,y=Mean,color=method,fill=method,linetype=as.factor(alpha)))+
-  geom_line()+
-  geom_ribbon(aes(ymin=Mean-SD,ymax=Mean+SD),alpha=0.25)+
-  facet_wrap(~DistMetric,scales = 'free')+
-  theme_minimal()+
-  theme(legend.position = 'bottom')
-
-
-df_summary %>% filter(Metric=='avg_dist_within_dist2medoid') %>% select(-Metric) %>% 
-  pivot_wider(id_cols = ncluster:DistMetric,names_from = summary_metric ) %>% 
-  ggplot(aes(x=ncluster,y=Mean,color=method,fill=method,linetype=as.factor(alpha)))+
-  geom_line()+
-  geom_ribbon(aes(ymin=Mean-SD,ymax=Mean+SD),alpha=0.25)+
-  facet_wrap(~DistMetric,scales = 'free')+
-  theme_minimal()+
-  theme(legend.position = 'bottom')
+## Everything underneath this was used to create functions.. 
+# df_evaluation = readRDS(paste0(savingdir,'/','df_evaluation'))
+# 
+# df_summary = bind_rows(
+#   df_evaluation %>% 
+#   group_by(ncluster,method,alpha,DistMetric) %>% 
+#   summarise_all(.funs = mean) %>% mutate(summary_metric='Mean') %>% ungroup() %>% 
+#   pivot_longer(cols = -c(ncluster,method,alpha,DistMetric,summary_metric),names_to = 'Metric'),
+#   
+#   df_evaluation %>% 
+#   group_by(ncluster,method,alpha,DistMetric) %>% 
+#   summarise_all(.funs = sd) %>% mutate(summary_metric='SD') %>% ungroup() %>% 
+#   pivot_longer(cols = -c(ncluster,method,alpha,DistMetric,summary_metric),names_to = 'Metric')
+# )
+# 
+# df_summary %>% filter(Metric=='within_sum') %>% select(-Metric) %>% 
+#   pivot_wider(id_cols = ncluster:DistMetric,names_from = summary_metric ) %>% 
+#   ggplot(aes(x=ncluster,y=Mean,color=method,fill=method,linetype=as.factor(alpha)))+
+#   geom_line()+
+#   geom_ribbon(aes(ymin=Mean-SD,ymax=Mean+SD),alpha=0.25)+
+#   facet_grid(DistMetric~method,scales = 'free')+
+#   theme_minimal()+
+#   theme(legend.position = 'bottom')
+#   
+# 
+# df_summary %>% filter(Metric=='avg_within_between_dist2medoid') %>% select(-Metric) %>% 
+#   pivot_wider(id_cols = ncluster:DistMetric,names_from = summary_metric ) %>% 
+#   ggplot(aes(x=ncluster,y=Mean,color=method,fill=method,linetype=as.factor(alpha)))+
+#   geom_line()+
+#   geom_ribbon(aes(ymin=Mean-SD,ymax=Mean+SD),alpha=0.1)+
+#   facet_wrap(~DistMetric,scales = 'free')+
+#   theme_minimal()+
+#   theme(legend.position = 'bottom')
+# 
+# 
+# df_summary %>% filter(Metric=='avg_dist_between_medoids') %>% select(-Metric) %>% 
+#   pivot_wider(id_cols = ncluster:DistMetric,names_from = summary_metric ) %>% 
+#   ggplot(aes(x=ncluster,y=Mean,color=method,fill=method,linetype=as.factor(alpha)))+
+#   geom_line()+
+#   geom_ribbon(aes(ymin=Mean-SD,ymax=Mean+SD),alpha=0.25)+
+#   facet_wrap(~DistMetric,scales = 'free')+
+#   theme_minimal()+
+#   theme(legend.position = 'bottom')
+# 
+# 
+# df_summary %>% filter(Metric=='avg_dist_within_dist2medoid') %>% select(-Metric) %>% 
+#   pivot_wider(id_cols = ncluster:DistMetric,names_from = summary_metric ) %>% 
+#   ggplot(aes(x=ncluster,y=Mean,color=method,fill=method,linetype=as.factor(alpha)))+
+#   geom_line()+
+#   geom_ribbon(aes(ymin=Mean-SD,ymax=Mean+SD),alpha=0.25)+
+#   facet_wrap(~DistMetric,scales = 'free')+
+#   theme_minimal()+
+#   theme(legend.position = 'bottom')
