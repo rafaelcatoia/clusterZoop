@@ -16,7 +16,7 @@ format:
 
 ::: panel-tabset
 
-# Previous data
+# Data
 
 ```{r}
 library(dplyr) ; library(tidyr) ; library(ggplot2)
@@ -34,6 +34,27 @@ for( i in 1:length(files_vec)){
 
 dat_tax = data.table::fread('https://raw.githubusercontent.com/rafaelcatoia/zoop_16N/main/treated_taxonomy_dat.csv') %>%
   as_tibble()
+
+### Loading the new data 
+grump_version = 'new'
+
+if(grump_version=='new'){
+## Use this if you are using the new GRUMP Data Set
+  datapath = root$find_file(paste0(datadir,'/','grump_asv_long20240501.csv'))
+dframe = data.table::fread(input = datapath) %>%
+  filter(Cruise %in% c('P16N','P16S')) %>% 
+  #filter(Raw.Sequence.Counts>0) %>% 
+  filter(Domain!='Unassigned') %>% 
+  mutate(Raw.Sequence.Counts = Corrected_sequence_counts)
+
+}else{
+  ## Or this one if you are using the OLD GRUMP Data Set
+  datapath = root$find_file(paste0(datadir,'/','grump_asv_long_20240110.csv'))
+  dframe = data.table::fread(input = datapath) %>%
+    filter(Cruise %in% c('P16N','P16S')) %>% 
+    #filter(Raw.Sequence.Counts>0) %>% 
+    filter(Domain!='Unassigned')
+}
 
 dat_tax %>% select(starts_with('P16')) %>% dim()
 ```
@@ -57,29 +78,6 @@ Since we don't have the full Relative abundance, let's recreate this dataset fro
 # GRUMP - Data Handling
 
 ```{r}
-grump_version = 'new'
-
-if(grump_version=='new'){
-## Use this if you are using the new GRUMP Data Set
-  datapath = root$find_file(paste0(datadir,'/','grump_asv_long20240501.csv'))
-dframe = data.table::fread(input = datapath) %>%
-  filter(Cruise %in% c('P16N','P16S')) %>% 
-  #filter(Raw.Sequence.Counts>0) %>% 
-  filter(Domain!='Unassigned') %>% 
-  mutate(Raw.Sequence.Counts = Corrected_sequence_counts)
-
-}else{
-  ## Or this one if you are using the OLD GRUMP Data Set
-  datapath = root$find_file(paste0(datadir,'/','grump_asv_long_20240110.csv'))
-  dframe = data.table::fread(input = datapath) %>%
-    filter(Cruise %in% c('P16N','P16S')) %>% 
-    #filter(Raw.Sequence.Counts>0) %>% 
-    filter(Domain!='Unassigned')
-}
-
-dat_tax$Kingdom %>% unique()
-dat_tax$Supergroup %>% unique()
-
 ## Vector containing the abiotic factors
 vet_abiotic = c(
   "Temperature",
@@ -120,9 +118,9 @@ For example, if we use Domain to create the compositions que get the following c
 #| layout-ncol: 2
 
 domain_composition = dframe %>% 
-  select(SampleID,Domain,Corrected_sequence_counts) %>% distinct() %>% 
+  select(SampleID,Domain,Raw.Sequence.Counts) %>% distinct() %>% 
   group_by(SampleID,Domain) %>% 
-  summarise(Sum_RawCounts = sum(Corrected_sequence_counts)) %>% ungroup %>% 
+  summarise(Sum_RawCounts = sum(Raw.Sequence.Counts)) %>% ungroup %>% 
   group_by(SampleID) %>% mutate(Sum_RawCounts_Sample = sum(Sum_RawCounts)) %>% 
   mutate(RA = Sum_RawCounts/Sum_RawCounts_Sample) %>% 
   pivot_wider(id_cols = SampleID,names_from = Domain ,values_from = RA) %>% data.frame()
@@ -189,29 +187,93 @@ I'll follow the previous Idea for today, do to time constrains.
 
 I think we need more information from Yubin and Nathan to use this 
 
-
-
 ## Filtering the ASVs that were present before 
 
 ```{r}
-dframe_recreating = dframe %>% 
-  
-  select(SampleID,Domain,Corrected_sequence_counts) %>% distinct() %>% 
-  group_by(SampleID,Domain) %>% 
-  summarise(Sum_RawCounts = sum(Corrected_sequence_counts)) %>% ungroup %>% 
+dframe_subset <- dframe %>% filter(ASV_hash %in% dat_tax$ASV_ID) %>% 
+  left_join(dframe %>% filter(ASV_hash %in% dat_tax$ASV_ID) %>% 
+              select(ASV_hash) %>% distinct() %>% 
+              mutate(ID_ASV_Num = 1:n()) %>% 
+              mutate(ID_ASV = ifelse(ID_ASV_Num<10,paste('000',ID_ASV_Num,sep=''),
+                                     ifelse(ID_ASV_Num<100,paste('00',ID_ASV_Num,sep=''),
+                                            ifelse(ID_ASV_Num<1000,paste('0',ID_ASV_Num,sep=''),
+                                                   paste(ID_ASV_Num))))) %>% 
+              mutate(ID_ASV = paste0('ASV_',ID_ASV)) %>% 
+              select(ASV_hash,ID_ASV)) %>% 
+  filter(!is.na(ID_ASV))
+
+dframe_asv_composition = dframe_subset %>%
+  select(SampleID,ID_ASV,Raw.Sequence.Counts) %>% distinct() %>% 
+  group_by(SampleID,ID_ASV) %>% 
+  summarise(Sum_RawCounts = sum(Raw.Sequence.Counts)) %>% ungroup %>% 
   group_by(SampleID) %>% mutate(Sum_RawCounts_Sample = sum(Sum_RawCounts)) %>% 
   mutate(RA = Sum_RawCounts/Sum_RawCounts_Sample) %>% 
-  pivot_wider(id_cols = SampleID,names_from = Domain ,values_from = RA) %>% data.frame()
+  pivot_wider(id_cols = SampleID,names_from = ID_ASV ,
+              values_from = RA,values_fill = 0) %>% data.frame() %>% 
+  relocate(SampleID,sort(names(.)))
 
-  
+dframe_asv_composition[1:5,1:10] %>% 
+  knitr::kable(digits = 3) %>% kableExtra::kable_styling()
+```
+Now checking that the rowSums is equal to 1
 
-dframe_recreating %>% select(ASV_hash) %>% distinct() %>% dim()
+```{r}
+dframe_asv_composition %>% select(-SampleID) %>% 
+  rowSums() %>% unique()
 ```
 
-So if we filter all the ASV_ID that were present in the date in the past, we had 
+```{r}
+min_raw_count = dframe_subset %>% select(Raw.Sequence.Counts) %>% min()
+
+min_raw_count = min_raw_count/1000
+
+dframe_asv_composition_filled = dframe_subset %>%
+  mutate(Raw.Sequence.Counts=Raw.Sequence.Counts + min_raw_count) %>% 
+  select(SampleID,ID_ASV,Raw.Sequence.Counts) %>% distinct() %>% 
+  group_by(SampleID,ID_ASV) %>% 
+  summarise(Sum_RawCounts = sum(Raw.Sequence.Counts)) %>% ungroup %>% 
+  pivot_wider(id_cols = SampleID,names_from = ID_ASV ,
+              values_from = Sum_RawCounts,
+              values_fill = min_raw_count) %>%
+  data.frame() %>% 
+  mutate(across(where(is.numeric))/rowSums(across(where(is.numeric)))) %>% 
+  relocate(SampleID,sort(names(.)))
 
 
+dframe_asv_composition_filled[1:5,1:10] %>% 
+  knitr::kable() %>% kableExtra::kable_styling()
+```
+And now we have the compositions for which we filled the 0's
 
+### Distribution of Zeros
 
+First, lets take a look on how many ASVs are present in each sample
+```{r}
+#| layout-ncol: 2
+
+dframe_subset %>% select(SampleID,ID_ASV) %>% 
+  distinct() %>% 
+  group_by(SampleID) %>% 
+  summarise(Freq=n()) %>% 
+  arrange(Freq) %>% 
+  mutate(Sample = 1:n()) %>% 
+  ggplot(aes(x=Sample,y=Freq))+
+  geom_point()+
+  ylab('Number of Zoop ASVs in each sample')+
+  theme_minimal()
+
+dframe_subset %>% select(SampleID,ID_ASV) %>% 
+  distinct() %>% 
+  group_by(ID_ASV) %>% 
+  summarise(Freq=n()) %>% 
+  arrange(Freq) %>% 
+  mutate(Zoop_ASV = 1:n()) %>% 
+  ggplot(aes(x=Zoop_ASV,y=Freq))+
+  geom_point()+
+  ylab('Number of Samples in each Zoop ASV')+
+  theme_minimal()
+```
+
+So basically more than 50% of the ASVs appear in **only** one sample.
 
 :::
