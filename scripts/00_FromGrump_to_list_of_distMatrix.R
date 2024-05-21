@@ -1,6 +1,7 @@
 ########################################################
 ## Script to get a list containing k "Bootstrap" samples
 ########################################################
+library(dplyr)
 
 root <- rprojroot::has_file(".git/index")
 datadir = root$find_file("data")
@@ -21,12 +22,14 @@ grump_version = 'new'
 
 if(grump_version=='new'){
   ## Use this if you are using the new GRUMP Data Set
-  datapath = root$find_file(paste0(datadir,'/','grump_asv_long20240501.csv'))
+  datapath = root$find_file(paste0(datadir,'/','grump_asv_long.csv'))
   dframe = data.table::fread(input = datapath) %>%
     filter(Cruise %in% c('P16N','P16S')) %>% 
     #filter(Raw.Sequence.Counts>0) %>% 
-    filter(Domain!='Unassigned') %>% 
-    mutate(Raw.Sequence.Counts = Corrected_sequence_counts)
+    #filter(Domain!='Unassigned') %>% 
+    mutate(Raw.Sequence.Counts = Corrected_sequence_counts) %>% 
+    #### New filter by Depth!
+    filter(Depth<600)
   
 }else{
   ## Or this one if you are using the OLD GRUMP Data Set
@@ -59,8 +62,8 @@ vet_abiotic = c(
   "Oxygen",
   "Silicate",
   "NO2",
-  #"NO3",#this causes duplicates
-  #"NH3",this is empty
+  "NO3",#this causes duplicates
+  "NH3",#this is empty
   "PO4"
 )
 
@@ -68,6 +71,13 @@ vet_abiotic = c(
 df_geo_abiotics <- dframe %>%
   select(SampleID,one_of(vet_abiotic),Latitude,Longitude,Depth,Longhurst_Short) %>% distinct() %>% 
   distinct() %>% arrange(SampleID)
+
+## looking at it doesn't hurt
+
+library(ggplot2)
+df_geo_abiotics %>% ggplot(aes(x=Latitude,y=Depth))+
+  geom_point()+
+  scale_y_reverse()
 
 ## Saving the abiotics df
 saveRDS(df_geo_abiotics,file = paste0(savingdir,'/','df_geo_abiotics'))

@@ -1,0 +1,279 @@
+---
+title: "Clustering Samples"
+format: 
+  html:
+    fig-width: 12
+    fig-height: 6
+    fig-align: center
+    echo: true
+    code-fold: true
+    fig-dpi: 100
+    warning: false
+    message: false
+    page-layout: custom
+    embed-resources: true
+---
+
+::: panel-tabset
+
+# Data
+
+```{r}
+library(dplyr) ; library(tidyr) ; library(ggplot2)
+
+root <- rprojroot::has_file(".git/index")
+datadir = root$find_file("data")
+funsdir = root$find_file("functions")
+savingdir = root$find_file("saved_files")
+
+files_vec <- list.files(funsdir)
+
+for( i in 1:length(files_vec)){
+  source(root$find_file(paste0(funsdir,'/',files_vec[i])))
+}
+
+dat_tax = data.table::fread('https://raw.githubusercontent.com/rafaelcatoia/zoop_16N/main/treated_taxonomy_dat.csv') %>%
+  as_tibble()
+
+### Loading the new data 
+grump_version = 'new'
+
+if(grump_version=='new'){
+## Use this if you are using the new GRUMP Data Set
+  datapath = root$find_file(paste0(datadir,'/','grump_asv_long20240501.csv'))
+dframe = data.table::fread(input = datapath) %>%
+  filter(Cruise %in% c('P16N','P16S')) %>% 
+  #filter(Raw.Sequence.Counts>0) %>% 
+  filter(Domain!='Unassigned') %>% 
+  mutate(Raw.Sequence.Counts = Corrected_sequence_counts)
+
+}else{
+  ## Or this one if you are using the OLD GRUMP Data Set
+  datapath = root$find_file(paste0(datadir,'/','grump_asv_long_20240110.csv'))
+  dframe = data.table::fread(input = datapath) %>%
+    filter(Cruise %in% c('P16N','P16S')) %>% 
+    #filter(Raw.Sequence.Counts>0) %>% 
+    filter(Domain!='Unassigned')
+}
+
+dat_tax %>% select(starts_with('P16')) %>% dim()
+```
+This is the data set that Yubin shared with us, in August last year. 
+
+We had 195 samples and 3586 ASVs
+
+One of the samples have 0 RA, the only information that we have available in this dataset is the Relative abundance (in the sample) of each ASV
+
+Lets look at the data:
+
+```{r}
+dat_tax %>%
+  transmute(ID_ASV = 1:n(),P16S.S84.N21,P16S.S90.N28,P16N.S21.N01) %>% head(5) %>% 
+  knitr::kable(digits=4) %>% kableExtra::kable_styling()
+```
+
+Since we don't have the full Relative abundance, let's recreate this dataset from the entire grump.
+
+
+# GRUMP - Data Handling
+
+```{r}
+## Vector containing the abiotic factors
+vet_abiotic = c(
+  "Temperature",
+  "Salinity",
+  "Oxygen",
+  "Silicate",
+  "NO2",
+  #"NO3",#this causes duplicates
+  #"NH3",this is empty
+  "PO4"
+)
+
+## Counting how many samples --
+## Idea 
+df_geo_abiotics <- dframe %>%
+  select(SampleID,one_of(vet_abiotic),Latitude,Longitude,Depth,Longhurst_Short) %>%
+  distinct() %>% arrange(SampleID)
+###
+
+df_geo_abiotics %>% 
+  knitr::kable() %>% 
+  kableExtra::kable_styling() %>% 
+  kableExtra::scroll_box(width = '100%',height = '300px')
+```
+
+The problem is that if we filter the P16N and P16S we only have 166 samples and not the 194 that we had before. 
+So we should ask Yubin and Nathan how to get the data correctly.
+
+I'll follow the analysis using this data, while while we ask them this.
+
+# Idea 
+
+Before, we were using sample composition of zooplanktons. This can be interesting, but at the same time, what if we use coarser levels of everything that is not zooplankton as big 'parts' in that composition and we go finer for the zooplanktons? Should we pursue this ideia yes or no?
+
+For example, if we use Domain to create the compositions que get the following composition:
+
+```{r}
+#| layout-ncol: 2
+
+domain_composition = dframe %>% 
+  select(SampleID,Domain,Raw.Sequence.Counts) %>% distinct() %>% 
+  group_by(SampleID,Domain) %>% 
+  summarise(Sum_RawCounts = sum(Raw.Sequence.Counts)) %>% ungroup %>% 
+  group_by(SampleID) %>% mutate(Sum_RawCounts_Sample = sum(Sum_RawCounts)) %>% 
+  mutate(RA = Sum_RawCounts/Sum_RawCounts_Sample) %>% 
+  pivot_wider(id_cols = SampleID,names_from = Domain ,values_from = RA) %>% data.frame()
+
+domain_composition %>% pivot_longer(-1,names_to = 'Domain',values_to = 'RA') %>% 
+  left_join(df_geo_abiotics %>% select(SampleID,Latitude,Depth,Longhurst_Short) %>%
+              arrange(Latitude,Depth) %>% 
+              mutate(SampleID_Latitude = 1:n())) %>% 
+  ggplot(aes(x=SampleID_Latitude,y=RA,fill=Domain))+
+  geom_bar(stat='identity')+
+  theme_minimal()+
+  xlab('Samples - Ordered by Latitude and Depth')+
+  theme(legend.position = 'bottom')
+
+domain_composition %>% ggplot(aes(Eukaryota))+
+  geom_density()+
+  theme_minimal()+
+  ylab('Density of the Eukaryota')
+```
+
+Here we observe the composition of each sample, when using the coarser taxonomic level `domain`
+
+Everything we did in the past, we were using the composition on the subparts of the blue bars.
+
+Lets take a look at the MDS, nmds, tsne and umap for this composition, using aitchison distance
+
+```{r}
+#| layout-ncol: 2
+#| layout-nrow: 2
+distMartix_domainComp = vegan::vegdist(domain_composition %>% select(-SampleID),method = 'aitchison') %>% 
+  as.matrix()
+
+set.seed(1234)
+objd_dimRed = distMatrix_dimReduction(distMatrix = distMartix_domainComp,
+                                      neighUmap = 20,
+                                      perplexityTsne = 3)
+
+test <- plot_dimReduc_coords(coord_plots = objd_dimRed)
+
+test$MDS_2d
+test$nMDS_2d
+test$TSNE_2d
+test$umap_2d
+```
+
+
+```{r}
+#|fig-width: 12
+#|fig-height: 12
+
+simmMatrix = exp(-distMartix_domainComp)
+
+# one over, as qgraph takes similarity matrices as input
+qgraph::qgraph(simmMatrix,
+               layout='spring',
+               vsize=3)
+#possible layouts are circle, groups or spring
+```
+I'll follow the previous Idea for today, do to time constrains.
+
+# Recreating the data from grump 
+
+## Using only some specific taxa
+
+I think we need more information from Yubin and Nathan to use this 
+
+## Filtering the ASVs that were present before 
+
+```{r}
+dframe_subset <- dframe %>% filter(ASV_hash %in% dat_tax$ASV_ID) %>% 
+  left_join(dframe %>% filter(ASV_hash %in% dat_tax$ASV_ID) %>% 
+              select(ASV_hash) %>% distinct() %>% 
+              mutate(ID_ASV_Num = 1:n()) %>% 
+              mutate(ID_ASV = ifelse(ID_ASV_Num<10,paste('000',ID_ASV_Num,sep=''),
+                                     ifelse(ID_ASV_Num<100,paste('00',ID_ASV_Num,sep=''),
+                                            ifelse(ID_ASV_Num<1000,paste('0',ID_ASV_Num,sep=''),
+                                                   paste(ID_ASV_Num))))) %>% 
+              mutate(ID_ASV = paste0('ASV_',ID_ASV)) %>% 
+              select(ASV_hash,ID_ASV)) %>% 
+  filter(!is.na(ID_ASV))
+
+dframe_asv_composition = dframe_subset %>%
+  select(SampleID,ID_ASV,Raw.Sequence.Counts) %>% distinct() %>% 
+  group_by(SampleID,ID_ASV) %>% 
+  summarise(Sum_RawCounts = sum(Raw.Sequence.Counts)) %>% ungroup %>% 
+  group_by(SampleID) %>% mutate(Sum_RawCounts_Sample = sum(Sum_RawCounts)) %>% 
+  mutate(RA = Sum_RawCounts/Sum_RawCounts_Sample) %>% 
+  pivot_wider(id_cols = SampleID,names_from = ID_ASV ,
+              values_from = RA,values_fill = 0) %>% data.frame() %>% 
+  relocate(SampleID,sort(names(.)))
+
+dframe_asv_composition[1:5,1:10] %>% 
+  knitr::kable(digits = 3) %>% kableExtra::kable_styling()
+```
+Now checking that the rowSums is equal to 1
+
+```{r}
+dframe_asv_composition %>% select(-SampleID) %>% 
+  rowSums() %>% unique()
+```
+
+```{r}
+min_raw_count = dframe_subset %>% select(Raw.Sequence.Counts) %>% min()
+
+min_raw_count = min_raw_count/1000
+
+dframe_asv_composition_filled = dframe_subset %>%
+  mutate(Raw.Sequence.Counts=Raw.Sequence.Counts + min_raw_count) %>% 
+  select(SampleID,ID_ASV,Raw.Sequence.Counts) %>% distinct() %>% 
+  group_by(SampleID,ID_ASV) %>% 
+  summarise(Sum_RawCounts = sum(Raw.Sequence.Counts)) %>% ungroup %>% 
+  pivot_wider(id_cols = SampleID,names_from = ID_ASV ,
+              values_from = Sum_RawCounts,
+              values_fill = min_raw_count) %>%
+  data.frame() %>% 
+  mutate(across(where(is.numeric))/rowSums(across(where(is.numeric)))) %>% 
+  relocate(SampleID,sort(names(.)))
+
+
+dframe_asv_composition_filled[1:5,1:10] %>% 
+  knitr::kable() %>% kableExtra::kable_styling()
+```
+And now we have the compositions for which we filled the 0's
+
+### Distribution of Zeros
+
+First, lets take a look on how many ASVs are present in each sample
+```{r}
+#| layout-ncol: 2
+
+dframe_subset %>% select(SampleID,ID_ASV) %>% 
+  distinct() %>% 
+  group_by(SampleID) %>% 
+  summarise(Freq=n()) %>% 
+  arrange(Freq) %>% 
+  mutate(Sample = 1:n()) %>% 
+  ggplot(aes(x=Sample,y=Freq))+
+  geom_point()+
+  ylab('Number of Zoop ASVs in each sample')+
+  theme_minimal()
+
+dframe_subset %>% select(SampleID,ID_ASV) %>% 
+  distinct() %>% 
+  group_by(ID_ASV) %>% 
+  summarise(Freq=n()) %>% 
+  arrange(Freq) %>% 
+  mutate(Zoop_ASV = 1:n()) %>% 
+  ggplot(aes(x=Zoop_ASV,y=Freq))+
+  geom_point()+
+  ylab('Number of Samples in each Zoop ASV')+
+  theme_minimal()
+```
+
+So basically more than 50% of the ASVs appear in **only** one sample.
+
+:::
