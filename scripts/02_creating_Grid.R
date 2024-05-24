@@ -1,17 +1,19 @@
 ####################################################### ---
 
+library(parallel) ; library(dplyr)
+
 root <- rprojroot::has_file(".git/index")
 datadir = root$find_file("data")
 funsdir = root$find_file("functions")
 savingdir = root$find_file("saved_files")
 
-##Depends on 2 things:
-df_cluster <- readRDS(paste0(savingdir,'/','df_cluster'))
-df_geo_abiotics <- readRDS(paste0(savingdir,'/','df_geo_abiotics'))
+files_vec <- list.files(funsdir)
 
-## Filter only samples that were used in the clustering process
-df_geo_abiotics = df_geo_abiotics %>%
-  filter(SampleID %in% df_cluster$SampleID)
+for( i in 1:length(files_vec)){
+  source(root$find_file(paste0(funsdir,'/',files_vec[i])))
+}
+
+df_geo_abiotics <- readRDS(paste0(savingdir,'/','df_geo_abiotics'))
 
 ## Store mean and sd of the df_geo_abiotics
 lat_scale_obj   <- c(mean(df_geo_abiotics$Latitude),sd(df_geo_abiotics$Latitude))
@@ -38,11 +40,12 @@ nneigh = 5
 
 #matrix that will retain the index of the neighbors
 nneigh_aux <- matrix(NA,nrow = nrow(grid_base),ncol=nneigh)
+maxIt = nrow(grid_base)
 
-for( i in 1:nrow(grid_base)){
+for( i in 1:maxIt){
   nneigh_aux[i,] <- dist_grid_sample(grid_base[i,],n_neigh = nneigh)
+  if(i%%100==0){cat('iteration ----------------------- ',i,'of ',maxIt,'\n')}
 }
-
 
 ## only giving names to the columns 
 aux <- 1:ncol(nneigh_aux)
@@ -51,11 +54,11 @@ colnames(nneigh_aux) = ifelse(aux<10,
                               paste0('n_neighs',aux))
 
 
-grid_base = bind_cols(grid_base,nneigh_aux) 
+grid_base = bind_cols(grid_base %>% select(lat_grid,depth_grid),nneigh_aux) 
 
 ## now we can basically start from here now.
-#saveRDS(grid_base,paste0(savingdir,'/','grid_base'))
-grid_base <- readRDS(paste0(savingdir,'/','grid_base'))
+saveRDS(grid_base,paste0(savingdir,'/','grid_base'))
+#grid_base <- readRDS(paste0(savingdir,'/','grid_base'))
 
 ## Everything underneath was only used to create the functions required to cloloring/finding the limits.
 

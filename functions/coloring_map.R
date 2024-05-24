@@ -77,10 +77,11 @@ coloring_map <- function(
     clustRegion = most_frequent_value(matCluster)
     gbase = gbase %>% mutate(ClustRegion = clustRegion)
     grid_base_matrix = gbase %>% 
-      pivot_wider(id_cols = lat_grid, names_from = depth_grid, values_from = ClustRegion) %>% 
+      tidyr::pivot_wider(id_cols = lat_grid, names_from = depth_grid,
+                         values_from = ClustRegion) %>% 
       as.matrix()
     grid_base_matrix_limits = check_adjacent_values(grid_base_matrix[,-1]) %>% data.frame() %>% 
-      pivot_longer(everything())
+      tidyr::pivot_longer(everything())
     out_list[[i]]<-data.frame(clustRegion=clustRegion,limits = grid_base_matrix_limits$value)
   }
   

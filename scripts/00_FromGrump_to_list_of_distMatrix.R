@@ -18,27 +18,16 @@ dat_tax = data.table::fread('https://raw.githubusercontent.com/rafaelcatoia/zoop
   as_tibble()
 
 ### Loading the new data 
-grump_version = 'new'
 
-if(grump_version=='new'){
-  ## Use this if you are using the new GRUMP Data Set
-  datapath = root$find_file(paste0(datadir,'/','grump_asv_long.csv'))
-  dframe = data.table::fread(input = datapath) %>%
-    filter(Cruise %in% c('P16N','P16S')) %>% 
-    #filter(Raw.Sequence.Counts>0) %>% 
-    #filter(Domain!='Unassigned') %>% 
-    mutate(Raw.Sequence.Counts = Corrected_sequence_counts) %>% 
-    #### New filter by Depth!
-    filter(Depth<600)
-  
-}else{
-  ## Or this one if you are using the OLD GRUMP Data Set
-  datapath = root$find_file(paste0(datadir,'/','grump_asv_long_20240110.csv'))
-  dframe = data.table::fread(input = datapath) %>%
-    filter(Cruise %in% c('P16N','P16S')) %>% 
-    #filter(Raw.Sequence.Counts>0) %>% 
-    filter(Domain!='Unassigned')
-}
+## Use this if you are using the new GRUMP Data Set
+datapath = root$find_file(paste0(datadir,'/','grump_asv_long.csv'))
+dframe = data.table::fread(input = datapath) %>%
+  filter(Cruise %in% c('P16N','P16S')) %>% 
+  #filter(Raw.Sequence.Counts>0) %>% 
+  #filter(Domain!='Unassigned') %>% 
+  mutate(Raw.Sequence.Counts = Corrected_sequence_counts) %>% 
+  #### New filter by Depth!
+  filter(Depth<600)
 
 #### -- now lets subset by only using the ASV that we had before
 dframe <- dframe %>% filter(ASV_hash %in% dat_tax$ASV_ID) %>% 
@@ -63,7 +52,7 @@ vet_abiotic = c(
   "Silicate",
   "NO2",
   "NO3",#this causes duplicates
-  "NH3",#this is empty
+  #"NH3",#this is empty
   "PO4"
 )
 
@@ -72,8 +61,7 @@ df_geo_abiotics <- dframe %>%
   select(SampleID,one_of(vet_abiotic),Latitude,Longitude,Depth,Longhurst_Short) %>% distinct() %>% 
   distinct() %>% arrange(SampleID)
 
-## looking at it doesn't hurt
-
+## looking at the samples
 library(ggplot2)
 df_geo_abiotics %>% ggplot(aes(x=Latitude,y=Depth))+
   geom_point()+
@@ -86,27 +74,27 @@ saveRDS(df_geo_abiotics,file = paste0(savingdir,'/','df_geo_abiotics'))
 ### -----------------------------------------------------------
 
 #here we have how many asvs were observed in each sample
-ASVsPerSamples = dframe %>% select(SampleID,ID_ASV) %>% 
-  distinct() %>% 
-  group_by(SampleID) %>% 
-  summarise(Sample_nof_ASVs=n()) %>% 
-  arrange(Sample_nof_ASVs)
+# ASVsPerSamples = dframe %>% select(SampleID,ID_ASV) %>% 
+#   distinct() %>% 
+#   group_by(SampleID) %>% 
+#   summarise(Sample_nof_ASVs=n()) %>% 
+#   arrange(Sample_nof_ASVs)
+# 
+# #here we have in how many samples each asv was observed
+# SamplesPerASVs = dframe %>% select(SampleID,ID_ASV) %>% 
+#   distinct() %>% 
+#   group_by(ID_ASV) %>% 
+#   summarise(ASVs_in_Samples=n()) %>% 
+#   arrange(ASVs_in_Samples) %>% arrange(ID_ASV)
+# 
+# 
+# dframe = dframe %>% 
+#   select(SampleID,ID_ASV,Raw.Sequence.Counts) %>% 
+#   left_join(ASVsPerSamples) %>% 
+#   left_join(SamplesPerASVs)
 
-#here we have in how many samples each asv was observed
-SamplesPerASVs = dframe %>% select(SampleID,ID_ASV) %>% 
-  distinct() %>% 
-  group_by(ID_ASV) %>% 
-  summarise(ASVs_in_Samples=n()) %>% 
-  arrange(ASVs_in_Samples) %>% arrange(ID_ASV)
 
-
-dframe = dframe %>% 
-  select(SampleID,ID_ASV,Raw.Sequence.Counts) %>% 
-  left_join(ASVsPerSamples) %>% 
-  left_join(SamplesPerASVs)
-
-
-## Saving the abiotics df
+## Saving the filtered Grump stacked
 saveRDS(dframe,file = paste0(savingdir,'/','dfGrump_longer_filtered'))
 
 ### --------------------------------------------------------------
@@ -133,7 +121,7 @@ for(ii in 1:B){
     select(SampleID,ID_ASV,Raw.Sequence.Counts) %>% distinct() %>% 
     group_by(SampleID,ID_ASV) %>% 
     summarise(Sum_RawCounts = sum(Raw.Sequence.Counts)) %>% ungroup %>% 
-    pivot_wider(id_cols = SampleID,names_from = ID_ASV ,
+    tidyr::pivot_wider(id_cols = SampleID,names_from = ID_ASV ,
                 values_from = Sum_RawCounts,
                 values_fill = min_raw_count) %>%
     data.frame() %>% 
@@ -174,6 +162,7 @@ abioticDist = df_geo_abiotics %>%
             Oxygen = scale(Oxygen),
             Silicate = scale(Silicate),
             NO2 = scale(NO2),
+            NO2 = scale(NO3),
             PO4 = scale(PO4)) %>% 
   as.matrix() %>% dist() %>% as.matrix() %>%  normalizeMatrix()
 
@@ -203,6 +192,7 @@ abioticDist = df_geo_abiotics %>%
             Oxygen = scale(Oxygen),
             Silicate = scale(Silicate),
             NO2 = scale(NO2),
+            NO2 = scale(NO3),
             PO4 = scale(PO4)) %>% 
   as.matrix() %>% dist() %>% as.matrix()
 
@@ -218,7 +208,7 @@ list_geo_abiotics_dists <- list(
     select(SampleID,ID_ASV,Raw.Sequence.Counts) %>% distinct() %>% 
     group_by(SampleID,ID_ASV) %>% 
     summarise(Sum_RawCounts = sum(Raw.Sequence.Counts)) %>% ungroup %>% 
-    pivot_wider(id_cols = SampleID,names_from = ID_ASV ,
+    tidyr::pivot_wider(id_cols = SampleID,names_from = ID_ASV ,
                 values_from = Sum_RawCounts,
                 values_fill = min_raw_count) %>%
     data.frame() %>% 

@@ -1,0 +1,199 @@
+---
+title: "Cluster Regions"
+format: 
+  html:
+    fig-width: 12
+    fig-height: 6
+    fig-align: center
+    echo: true
+    code-fold: true
+    fig-dpi: 100
+    warning: false
+    message: false
+    page-layout: full
+    embed-resources: true
+---
+
+::: panel-tabset
+
+# Data
+
+```{r}
+library(dplyr) ; library(tidyr) ; library(ggplot2)
+
+root <- rprojroot::has_file(".git/index")
+datadir = root$find_file("data")
+funsdir = root$find_file("functions")
+savingdir = root$find_file("saved_files")
+
+files_vec <- list.files(funsdir)
+
+for( i in 1:length(files_vec)){
+  source(root$find_file(paste0(funsdir,'/',files_vec[i])))
+}
+
+# dat_tax = data.table::fread('https://raw.githubusercontent.com/rafaelcatoia/zoop_16N/main/treated_taxonomy_dat.csv') %>%
+#   as_tibble()
+# 
+# ### Loading the new data 
+# grump_version = 'new'
+# 
+# if(grump_version=='new'){
+# ## Use this if you are using the new GRUMP Data Set
+#   datapath = root$find_file(paste0(datadir,'/','grump_asv_long20240501.csv'))
+# dframe = data.table::fread(input = datapath) %>%
+#   filter(Cruise %in% c('P16N','P16S')) %>% 
+#   #filter(Raw.Sequence.Counts>0) %>% 
+#   filter(Domain!='Unassigned') %>% 
+#   mutate(Raw.Sequence.Counts = Corrected_sequence_counts)
+# 
+# }else{
+#   ## Or this one if you are using the OLD GRUMP Data Set
+#   datapath = root$find_file(paste0(datadir,'/','grump_asv_long_20240110.csv'))
+#   dframe = data.table::fread(input = datapath) %>%
+#     filter(Cruise %in% c('P16N','P16S')) %>% 
+#     #filter(Raw.Sequence.Counts>0) %>% 
+#     filter(Domain!='Unassigned')
+# }
+# 
+# dat_tax %>% select(starts_with('P16')) %>% dim()
+```
+
+# Deciding the number of clusters
+
+
+::: panel-tabset 
+
+## Clusters Geodist Latitude Mirrored
+
+Within Sum 
+
+```{r}
+#| fig-width: 12
+#| fig-height: 8
+#| fig-align: center
+#| fig-dpi: 150
+
+df_evaluation_lat_mirrored = readRDS(paste0(savingdir,'/','df_evaluation_lat_mirrored'))
+
+df_summary = bind_rows(
+  df_evaluation_lat_mirrored %>% 
+  group_by(ncluster,method,alpha,DistMetric) %>% 
+  summarise_all(.funs = mean) %>% mutate(summary_metric='Mean') %>% ungroup() %>% 
+  pivot_longer(cols = -c(ncluster,method,alpha,DistMetric,summary_metric),names_to = 'Metric'),
+  
+  df_evaluation_lat_mirrored %>% 
+  group_by(ncluster,method,alpha,DistMetric) %>% 
+  summarise_all(.funs = sd) %>% mutate(summary_metric='SD') %>% ungroup() %>% 
+  pivot_longer(cols = -c(ncluster,method,alpha,DistMetric,summary_metric),names_to = 'Metric')
+)
+
+df_summary %>% filter(Metric=='within_sum') %>% select(-Metric) %>% 
+  pivot_wider(id_cols = ncluster:DistMetric,names_from = summary_metric ) %>%
+  mutate(alpha=factor(alpha)) %>% 
+  ggplot(aes(x=ncluster,y=Mean,color=method,fill=method,linetype=alpha))+
+  geom_line()+
+  geom_ribbon(aes(ymin=Mean-SD,ymax=Mean+SD),alpha=0.25)+
+  facet_grid(DistMetric~alpha,scales = 'free')+
+  theme_minimal()+
+  theme(legend.position = 'bottom')
+
+```
+
+Average max dist within 
+
+```{r}
+#| fig-width: 12
+#| fig-height: 8
+#| fig-align: center
+#| fig-dpi: 150
+
+df_summary %>% filter(Metric=='avg_max_dist_within') %>% select(-Metric) %>% 
+  pivot_wider(id_cols = ncluster:DistMetric,names_from = summary_metric ) %>%
+  mutate(alpha=factor(alpha)) %>% 
+  ggplot(aes(x=ncluster,y=Mean,color=method,fill=method,linetype=alpha))+
+  geom_line()+
+  geom_ribbon(aes(ymin=Mean-SD,ymax=Mean+SD),alpha=0.25)+
+  facet_grid(DistMetric~alpha,scales = 'free')+
+  theme_minimal()+
+  theme(legend.position = 'bottom')
+```
+
+:::
+
+
+# Ocean Limits
+
+::: panel-tabset 
+
+## Clusters Before matching
+```{r}
+#| fig-width: 25
+#| fig-height: 12
+#| fig-align: center
+#| fig-dpi: 300
+
+
+# list_cluster_membership_and_bounderies_mirroredLat = readRDS(file = # paste0(savingdir,'/','list_cluster_membership_and_bounderies_mirroredLat'))
+# 
+# clust_member_limits =unlist_coloring_obj(list_cluster_membership_and_bounderies_mirroredLat[1:100])
+# 
+# plt2 = gen_plots(gridBase = grid_base,clustMemLim = clust_member_limits,df_GeoAbio = df_geo_abiotics)
+# saveRDS(plt2,paste0(savingdir,'/','plt2'))
+plt2 = readRDS(paste0(savingdir,'/','plt2'))
+plt2$limits_faceted
+```
+
+## Clusters after matching
+```{r}
+#| fig-width: 25
+#| fig-height: 12
+#| fig-align: center
+#| fig-dpi: 300
+
+# list_cluster_membership_and_bounderies_mirroredLat_matched = readRDS(file = # paste0(savingdir,'/','list_cluster_membership_and_bounderies_mirroredLat_matched'))
+# 
+# clust_member_limits = unlist_coloring_obj(list_cluster_membership_and_bounderies_mirroredLat_matched[1:10]# )
+# 
+# plt3 = gen_plots(gridBase = grid_base,clustMemLim = clust_member_limits,df_GeoAbio = df_geo_abiotics)
+# saveRDS(plt3,paste0(savingdir,'/','plt3'))
+plt3 = readRDS(paste0(savingdir,'/','plt3'))
+plt3$limits_faceted
+```
+
+
+:::
+
+# Ocean Regions
+
+::: panel-tabset 
+
+## Clusters Before matching
+```{r}
+#| fig-width: 25
+#| fig-height: 12
+#| fig-align: center
+#| fig-dpi: 300
+
+plt2$clustRegion_facetd
+```   
+
+
+## Clusters after matching
+```{r}
+#| fig-width: 25
+#| fig-height: 12
+#| fig-align: center
+#| fig-dpi: 300
+
+# list_cluster_membership_and_bounderies_mirroredLat_matched = readRDS(file =  #paste0(savingdir,'/','list_cluster_membership_and_bounderies_mirroredLat_matched'))
+#
+#clust_member_limits = unlist_coloring_obj(list_cluster_membership_and_bounderies_mirroredLat_matched[1:100])
+#
+#plt3 = gen_plots(gridBase = grid_base,clustMemLim = clust_member_limits,df_GeoAbio = df_geo_abiotics)
+#saveRDS(plt3,paste0(savingdir,'/','plt3'))
+plt3$clustRegion_facetd
+```
+:::
+
+:::

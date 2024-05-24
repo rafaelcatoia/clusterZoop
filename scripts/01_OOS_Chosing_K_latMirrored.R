@@ -4,6 +4,8 @@ datadir = root$find_file("data")
 funsdir = root$find_file("functions")
 savingdir = root$find_file("saved_files")
 
+library(parallel) ; library(dplyr)
+
 files_vec <- list.files(funsdir)
 
 for( i in 1:length(files_vec)){
@@ -20,11 +22,18 @@ list_normalized_geo_abiotics_dists = readRDS(file = paste0(savingdir,'/','list_n
 list_geo_abiotics_dists = readRDS(file = paste0(savingdir,'/','list_geo_abiotics_dists'))
 
 dim_all <- lapply(list_AitDist,dim) %>% unlist()
-dim_all %>% unique()
-## there are two positions for which the dimension is not 165
-list_AitDist_clean = Filter(function(x) dim(x)[1] == 165, list_AitDist)
+dim_all %>% table()
 
-df_evaluation <- data.table::rbindlist(lapply(list_AitDist_clean[1:200],function(x){eval_clustering(D = x,latMirrored = T)}))
+## there are two positions for which the dimension is not 165
+list_AitDist_clean = Filter(function(x) dim(x)[1] == 174, list_AitDist)
+
+df_evaluation <- data.table::rbindlist(parallel::mclapply(
+  list_AitDist_clean[1:200],function(x){eval_clustering(
+    D = x,
+    list_normalized_dist = list_normalized_geo_abiotics_dists,
+    list_dist = list_geo_abiotics_dists,
+    latMirrored = T)},mc.cores = 5))
+
 ###### THE WARNINGS ARE SUPOSED TO HAPPEN!
 
 

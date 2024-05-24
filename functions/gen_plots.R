@@ -1,9 +1,11 @@
 ######## Genete plots ---------------------------------
 # list_cluster_membership_and_bounderies = readRDS(file = paste0(savingdir,'/','list_cluster_membership_and_bounderies'))
+# list_cluster_membership_and_bounderies_mirroredLat = readRDS(file = paste0(savingdir,'/','list_cluster_membership_and_bounderies_mirroredLat'))
 # grid_base = readRDS(file = paste0(savingdir,'/','grid_base'))
-# clust_member_limits = unlist_coloring_obj(list_cluster_membership_and_bounderies)
+# clust_member_limits = unlist_coloring_obj(list_cluster_membership_and_bounderies_mirroredLat)
+# df_GeoAbio = readRDS(file = paste0(savingdir,'/','df_geo_abiotics'))
 
-#gridBase = grid_base
+#gridBase = grid_base %>% rename('lat_grid'=1,'depth_grid'=2)
 #clustMemLim = clust_member_limits
 #df_GeoAbio =df_geo_abiotics
 
@@ -20,16 +22,16 @@ gen_plots <- function(gridBase,clustMemLim,df_GeoAbio){
   gridBase = gridBase %>% 
     mutate(Latitude= lat_grid*sd_Lat + mean_Lat,
            Depth = depth_grid*sd_Depth + mean_Depth)
+
   
   #################### First the summary plots ----------------------------------------------
   meanLimits = lapply(clustMemLim$regionLimits,rowMeans)
-  clustRegion = lapply(clustMemLim$regionCluster,most_frequent_random)
+  clustRegion = parallel::mclapply(clustMemLim$regionCluster,most_frequent_random,mc.cores = 12)
   number_replicates = ncol(clustMemLim$regionCluster[[1]])
   
   
   #### Plotting limits 
   list_summary_Limits = lapply(seq_along(meanLimits), function(i){
-    
     gridBase %>% select(Latitude,Depth) %>% 
       mutate(limits = meanLimits[[i]]) %>% filter(limits>0) %>% 
       ggplot(aes(x=Latitude,y=Depth,alpha=limits))+
@@ -41,7 +43,7 @@ gen_plots <- function(gridBase,clustMemLim,df_GeoAbio){
   })
   
   limits_faceted <- ggpubr::ggarrange(plotlist = list_summary_Limits,ncol = 4,nrow=2,
-                                      common.legend = TRUE, legend="bottom")
+                                      common.legend = F, legend="bottom")
   
   
   list_summary_clustRegion = lapply(seq_along(clustRegion), function(i){
@@ -60,7 +62,7 @@ gen_plots <- function(gridBase,clustMemLim,df_GeoAbio){
   clustRegion_facetd <- ggpubr::ggarrange(
     plotlist = list_summary_clustRegion,
     ncol = 4,nrow=2,
-    common.legend = TRUE, legend="bottom")
+    common.legend = F, legend="bottom")
   
   
   return(list(
