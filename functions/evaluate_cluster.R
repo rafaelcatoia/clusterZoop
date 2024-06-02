@@ -1,3 +1,11 @@
+#list_geo_abiotics_dists = readRDS(file = paste0(savingdir,'/','list_geo_abiotics_dists'))
+#
+#distMatrixEval = list_geo_abiotics_dists$geo_Dist_mirrored
+#list_geo_abiotics_dists$geo_Dist %>% plot_distance_matrix
+#list_geo_abiotics_dists$geo_Dist_mirrored %>% plot_distance_matrix
+#list_geo_abiotics_dists$abioticDist %>% plot_distance_matrix
+#list_geo_abiotics_dists$aitDist %>% plot_distance_matrix
+
 evaluate_cluster <- function(distMatrixEval,df_clusters,Kmax=Kmax){
   out_df=data.frame(
     ncluster = 0,
@@ -40,7 +48,6 @@ evaluate_cluster <- function(distMatrixEval,df_clusters,Kmax=Kmax){
       }else{
         medoid_idx_within[iii] = cluster::pam(x = as.dist(distMatrix_subseted[[iii]]),k = 1)$id.med
       }
-      
       #than we store the idx in the not subsetted version.
       medoid_idx[iii] = idx_clust_iii[medoid_idx_within[iii]]
       # cat('\n Done for cluster ', i,'---------------------- \n')
@@ -48,7 +55,7 @@ evaluate_cluster <- function(distMatrixEval,df_clusters,Kmax=Kmax){
     
     ## Sum within pairwise dist
     sum_within_pairwise_dist         = lapply(distMatrix_subseted,function(x) {sum(x)/2}) %>% unlist() %>% sum()
-    sum_within_pairwise_dist_squared = lapply(distMatrix_subseted,function(x) {(sum(x)/2)^2}) %>% unlist() %>% sum()
+    sum_within_pairwise_dist_squared = lapply(distMatrix_subseted,function(x) {((x^2 %>% sum())/2)}) %>% unlist() %>% sum()
     avg_within_pairwise_dist = lapply(distMatrix_subseted,function(x) { if(!is.null(dim(x))){(sum(x)/2)/sum(lower.tri(x)) }else{0}}) %>% unlist %>% mean
     ## Metrics within -------------------------------------------------------------------------
     sum_within_dist2medoid <- rep(NA,length = numberOfClusters_itt)

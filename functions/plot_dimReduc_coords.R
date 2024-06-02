@@ -88,7 +88,7 @@ plot_dimReduc_coords <- function(coord_plots,weights = NULL,clusters=NULL,baseSi
       return(out)
     }
   }else{
-    coord_plots = coord_plots %>% mutate(Clusters = clusters)
+    coord_plots = coord_plots %>% mutate(Clusters = as.factor(clusters))
     if(is.null(weights)){
       out$MDS_2d = ggplot(
         data = coord_plots,

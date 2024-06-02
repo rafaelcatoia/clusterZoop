@@ -1,3 +1,4 @@
+library(dplyr) ; library(tidyr)
 
 root <- rprojroot::has_file(".git/index")
 datadir = root$find_file("data")
@@ -21,20 +22,15 @@ list_AitDist = readRDS(paste0(savingdir,'/','list_AitDist'))
 list_normalized_geo_abiotics_dists = readRDS(file = paste0(savingdir,'/','list_normalized_geo_abiotics_dists'))
 list_geo_abiotics_dists = readRDS(file = paste0(savingdir,'/','list_geo_abiotics_dists'))
 
-dim_all <- lapply(list_AitDist,dim) %>% unlist()
-dim_all %>% table()
-
 ## there are two positions for which the dimension is not 165
-list_AitDist_clean = Filter(function(x) dim(x)[1] == 174, list_AitDist)
-
 df_evaluation <- data.table::rbindlist(parallel::mclapply(
-  list_AitDist_clean[1:200],function(x){eval_clustering(
+  list_AitDist,function(x){eval_clustering(
     D = x,
     list_normalized_dist = list_normalized_geo_abiotics_dists,
     list_dist = list_geo_abiotics_dists,
-    latMirrored = T)},mc.cores = 5))
+    latMirrored = T)},mc.cores = 8))
 
-###### THE WARNINGS ARE SUPOSED TO HAPPEN!
+###### THE WARNINGS ARE SUPOSED TO HAPPEN,
 
 
 saveRDS(df_evaluation,paste0(savingdir,'/','df_evaluation_lat_mirrored'))

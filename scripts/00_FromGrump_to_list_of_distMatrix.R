@@ -58,41 +58,92 @@ vet_abiotic = c(
 
 ## Filtering the abiotics per sample
 df_geo_abiotics <- dframe %>%
-  select(SampleID,one_of(vet_abiotic),Latitude,Longitude,Depth,Longhurst_Short) %>% distinct() %>% 
+  select(SampleID,one_of(vet_abiotic),Latitude,Longitude,Depth,Longhurst_Short) %>%
+  mutate(Oxygen=ifelse(Oxygen<0,NA,Oxygen),
+         NO3=ifelse(NO3<0,NA,NO3)) %>% 
   distinct() %>% arrange(SampleID)
 
 ## looking at the samples
 library(ggplot2)
 df_geo_abiotics %>% ggplot(aes(x=Latitude,y=Depth))+
-  geom_point()+
+  geom_point(size=5)+
   scale_y_reverse()
+
+df_geo_abiotics %>% 
+  tidyr::pivot_longer(cols = any_of(vet_abiotic),names_to = 'AbioticFactor') %>% 
+  group_split(AbioticFactor) %>% 
+  purrr::map(
+    ~ggplot(., aes(x=Latitude,y=Depth, color = value)) + 
+      geom_point(size = 3) +
+      theme_minimal()+
+      scale_y_reverse() +
+      scale_colour_gradient2(
+        low = "black", 
+        mid = "gray", 
+        high = "deepskyblue3",
+        na.value = 'red',
+        midpoint = median(.$value,na.rm=T)
+      )+
+      ggtitle(unique(.$AbioticFactor))
+      #facet_wrap(~ AbioticFactor, labeller = function(x) label_value(x, multi_line = FALSE))
+  ) %>% 
+  cowplot::plot_grid(plotlist = ., align = 'hv', ncol = 2)
+
+
+
+## Solving the missing problem -------------------------------------------------
+
+df_geo_abiotics <- dframe %>%
+  select(SampleID,one_of(vet_abiotic),Latitude,Longitude,Depth,Longhurst_Short) %>%
+  distinct() %>% 
+  #mutate(Oxygen=ifelse(Oxygen<0,NA,Oxygen),
+  #       NO3=ifelse(NO3<0,NA,NO3)) %>% 
+  arrange(SampleID)
+
+
+## Here we have the sample with missing values on Oxygen and NO3
+df_geo_abiotics %>% 
+  filter(NO3<0 |Oxygen<0)
+
+
+## First inputation = 212.9
+df_geo_abiotics %>% filter(Latitude ==18) %>% arrange(Depth)
+df_geo_abiotics$Oxygen[df_geo_abiotics$SampleID=='P16N-S40-N10'] <- 212.9
+
+## Second inputation = 0.13 + 2.49 / 2 = 1.375
+df_geo_abiotics %>% filter(Latitude ==-18.0) %>% arrange(Depth)
+df_geo_abiotics$NO3[df_geo_abiotics$SampleID=='P16S-S05-N15'] <- 1.375
+
+## Third inputation = 346.9
+df_geo_abiotics %>% filter(Latitude ==-63.5) %>% arrange(Depth)
+df_geo_abiotics$Oxygen[df_geo_abiotics$SampleID=='P16S-S96-N28'] <- 346.9
+
+## This is how it looks after the inputation 
+df_geo_abiotics %>% 
+  tidyr::pivot_longer(cols = any_of(vet_abiotic),names_to = 'AbioticFactor') %>% 
+  group_split(AbioticFactor) %>% 
+  purrr::map(
+    ~ggplot(., aes(x=Latitude,y=Depth, color = value)) + 
+      geom_point(size = 3) +
+      theme_minimal()+
+      scale_y_reverse() +
+      scale_colour_gradient2(
+        low = "black", 
+        mid = "gray", 
+        high = "deepskyblue3",
+        na.value = 'red',
+        midpoint = median(.$value,na.rm=T))+
+      ggtitle(unique(.$AbioticFactor))
+    #facet_wrap(~ AbioticFactor, labeller = function(x) label_value(x, multi_line = FALSE))
+  ) %>% 
+  cowplot::plot_grid(plotlist = ., align = 'hv', ncol = 2)
+
+
+### Inputing those values:: 
 
 ## Saving the abiotics df
 saveRDS(df_geo_abiotics,file = paste0(savingdir,'/','df_geo_abiotics'))
-### -----------------------------------------------------------
-## Lets now keep only the things that are interesting to us ---
-### -----------------------------------------------------------
-
-#here we have how many asvs were observed in each sample
-# ASVsPerSamples = dframe %>% select(SampleID,ID_ASV) %>% 
-#   distinct() %>% 
-#   group_by(SampleID) %>% 
-#   summarise(Sample_nof_ASVs=n()) %>% 
-#   arrange(Sample_nof_ASVs)
-# 
-# #here we have in how many samples each asv was observed
-# SamplesPerASVs = dframe %>% select(SampleID,ID_ASV) %>% 
-#   distinct() %>% 
-#   group_by(ID_ASV) %>% 
-#   summarise(ASVs_in_Samples=n()) %>% 
-#   arrange(ASVs_in_Samples) %>% arrange(ID_ASV)
-# 
-# 
-# dframe = dframe %>% 
-#   select(SampleID,ID_ASV,Raw.Sequence.Counts) %>% 
-#   left_join(ASVsPerSamples) %>% 
-#   left_join(SamplesPerASVs)
-
+dim(df_geo_abiotics)
 
 ## Saving the filtered Grump stacked
 saveRDS(dframe,file = paste0(savingdir,'/','dfGrump_longer_filtered'))
@@ -108,14 +159,14 @@ pct_colSubSample = 0.75
 min_raw_count = dframe %>% select(Raw.Sequence.Counts) %>% min()
 min_raw_count = min_raw_count/1000
 
-seedI = 1234
+seedI = 5757
 set.seed(seedI)
 for(ii in 1:B){
   
   set.seed(seedI+ii)
   asvSubset=sample(idASVs,size = pct_colSubSample*length(idASVs))
   
-  list_AitDist[[ii]] <-dframe %>%
+  list_AitDist[[ii]] <- dframe %>%
     filter(ID_ASV %in% asvSubset) %>% 
     mutate(Raw.Sequence.Counts=Raw.Sequence.Counts + min_raw_count) %>% 
     select(SampleID,ID_ASV,Raw.Sequence.Counts) %>% distinct() %>% 
@@ -131,14 +182,18 @@ for(ii in 1:B){
     select(-SampleID) %>% 
     vegan::vegdist(method = 'aitchison') %>% as.matrix() %>% 
     normalizeMatrix()
-  
 }
 
-####### here we have a list of bootstraped normalized aitDist
+### Sometimes, when we colsample the ASVs, we basically loose some samples. So we are only keeping the subset that 
+length(list_AitDist)
+list_AitDist = Filter(function(x) dim(x)[1] == 174, list_AitDist)
+length(list_AitDist)
+####### here we have a list of "bootstraped" normalized aitDist
 ####### now lets save this and move to the next step
 saveRDS(list_AitDist,file = paste0(savingdir,'/','list_AitDist'))
 
 
+#####################################################################################################
 
 ###### creating the distance matrices that we will use in the convex mixture in the future
 df_geo_abiotics = readRDS(file = paste0(savingdir,'/','df_geo_abiotics'))

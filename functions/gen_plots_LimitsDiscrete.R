@@ -27,7 +27,7 @@ gen_plots <- function(gridBase,clustMemLim,df_GeoAbio){
   #################### First the summary plots ----------------------------------------------
   meanLimits = lapply(clustMemLim$regionLimits,rowMeans)
   meanLimitsDiscrete = lapply(meanLimits,function(x){
-    cut(x,breaks = c(0,0.10,0.25,0.5,0.75,1.00),#labels = c(<0.2,0.2,0.4,0.6,0.8,1) 
+    cut(x,breaks = seq(0,1,0.1),#labels = c(<0.2,0.2,0.4,0.6,0.8,1) 
         include.lowest = T)})
   
 clustRegion = parallel::mclapply(clustMemLim$regionCluster,most_frequent_random,mc.cores = 12)

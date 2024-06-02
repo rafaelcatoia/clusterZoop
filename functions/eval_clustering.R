@@ -7,14 +7,13 @@
 # list_normalized_geo_abiotics_dists = readRDS(file = paste0(savingdir,'/','list_normalized_geo_abiotics_dists'))
 # list_geo_abiotics_dists = readRDS(file = paste0(savingdir,'/','list_geo_abiotics_dists'))
 # list_AitDist = readRDS(file = paste0(savingdir,'/','list_AitDist'))
-
-#D = list_AitDist[[1]]
+# D = list_AitDist[[1]]
 
 eval_clustering <- function(
   D,
   list_normalized_dist=list_normalized_geo_abiotics_dists, # those dists can be used to create a convex mixture of distance matrices
   list_dist = list_geo_abiotics_dists, # those will be use to perform cluser evaluation
-  latMirrored=F,
+  latMirrored=T,
   vet_alpha=c(0.05,0.10,0.20),
   
   Kmax=25){
@@ -44,10 +43,10 @@ eval_clustering <- function(
   
   ####################################   Ward    ####################################
   #################################### Creating hclust objs
-  hclust_0 = hclust(d=D1,method='ward.D2')
-  hclust_0.05 = hclust(d=D2,method='ward.D2')
-  hclust_0.10 = hclust(d=D3,method='ward.D2')
-  hclust_0.20 = hclust(d=D4,method='ward.D2')
+  hclust_0 = hclust(d=D1,method='ward.D')
+  hclust_0.05 = hclust(d=D2,method='ward.D')
+  hclust_0.10 = hclust(d=D3,method='ward.D')
+  hclust_0.20 = hclust(d=D4,method='ward.D')
   
   #################################### With geodist 
   mat_hclust0 <- matrix(NA,nrow=nrows,ncol=Kmax)

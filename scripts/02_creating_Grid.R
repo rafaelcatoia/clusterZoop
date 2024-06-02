@@ -1,6 +1,5 @@
 ####################################################### ---
-
-library(parallel) ; library(dplyr)
+library(parallel) ; library(dplyr) ; library(tidyr)
 
 root <- rprojroot::has_file(".git/index")
 datadir = root$find_file("data")
@@ -36,7 +35,7 @@ depth_grid = seq(min_depth,max_depth,0.01)
 grid_base = expand_grid(lat_grid,depth_grid)
 
 ## Here we set the number of nearest neigh 
-nneigh = 5
+nneigh = 10
 
 #matrix that will retain the index of the neighbors
 nneigh_aux <- matrix(NA,nrow = nrow(grid_base),ncol=nneigh)

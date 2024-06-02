@@ -17,18 +17,20 @@ gen_plots <- function(gridBase,clustMemLim,df_GeoAbio){
   
   mean_Depth = df_GeoAbio$Depth %>% mean()
   sd_Depth = df_GeoAbio$Depth %>% sd()
-  
-  
+
   gridBase = gridBase %>% 
     mutate(Latitude= lat_grid*sd_Lat + mean_Lat,
            Depth = depth_grid*sd_Depth + mean_Depth)
-
   
+  #those values are going to use as limits on the plots
+  min_lat = min(gridBase$Latitude)
+  max_lat = max(gridBase$Latitude)
+  min_Depth = min(gridBase$Depth)
+  max_Depth = max(gridBase$Depth)
   #################### First the summary plots ----------------------------------------------
   meanLimits = lapply(clustMemLim$regionLimits,rowMeans)
   clustRegion = parallel::mclapply(clustMemLim$regionCluster,most_frequent_random,mc.cores = 12)
   number_replicates = ncol(clustMemLim$regionCluster[[1]])
-  
   
   #### Plotting limits 
   list_summary_Limits = lapply(seq_along(meanLimits), function(i){
@@ -38,12 +40,14 @@ gen_plots <- function(gridBase,clustMemLim,df_GeoAbio){
       geom_tile()+
       scale_y_reverse()+
       theme_minimal()+
-      ggtitle(names(meanLimits)[i])
+      ggtitle(names(meanLimits)[i])+
+      xlim(min_lat,max_lat)
     
   })
   
   limits_faceted <- ggpubr::ggarrange(plotlist = list_summary_Limits,ncol = 4,nrow=2,
-                                      common.legend = F, legend="bottom")
+                                      common.legend = T, legend="bottom")
+  
   
   
   list_summary_clustRegion = lapply(seq_along(clustRegion), function(i){
@@ -55,15 +59,17 @@ gen_plots <- function(gridBase,clustMemLim,df_GeoAbio){
       geom_tile()+
       scale_y_reverse()+
       theme_minimal()+
-      ggtitle(names(clustRegion)[i])
+      ggtitle(names(clustRegion)[i]) %>% 
+      theme(legend.position = 'bottom')
     
   })
   
+  ## Had to do this in order to have the same 
+  legend_unique = ggpubr::get_legend(list_summary_clustRegion[[8]])
+  
   clustRegion_facetd <- ggpubr::ggarrange(
     plotlist = list_summary_clustRegion,
-    ncol = 4,nrow=2,
-    common.legend = F, legend="bottom")
-  
+    ncol = 4,nrow=2, legend="bottom")
   
   return(list(
     limits_faceted=limits_faceted,

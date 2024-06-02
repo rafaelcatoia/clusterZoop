@@ -186,13 +186,13 @@ plt2$clustRegion_facetd
 #| fig-align: center
 #| fig-dpi: 300
 
-# list_cluster_membership_and_bounderies_mirroredLat_matched = readRDS(file =  #paste0(savingdir,'/','list_cluster_membership_and_bounderies_mirroredLat_matched'))
-#
-#clust_member_limits = unlist_coloring_obj(list_cluster_membership_and_bounderies_mirroredLat_matched[1:100])
-#
-#plt3 = gen_plots(gridBase = grid_base,clustMemLim = clust_member_limits,df_GeoAbio = df_geo_abiotics)
-#saveRDS(plt3,paste0(savingdir,'/','plt3'))
-plt3$clustRegion_facetd
+list_cluster_membership_and_bounderies_mirroredLat_matched = readRDS(file =  paste0(savingdir,'/','list_cluster_membership_and_bounderies_mirroredLat_matched'))
+
+clust_member_limits = unlist_coloring_obj(list_cluster_membership_and_bounderies_mirroredLat_matched[1:50])
+
+plt3 = gen_plots(gridBase = grid_base,clustMemLim = clust_member_limits,df_GeoAbio = df_geo_abiotics)
+saveRDS(plt3,paste0(savingdir,'/','plt3'))
+plt3$limits_faceted
 ```
 :::
 

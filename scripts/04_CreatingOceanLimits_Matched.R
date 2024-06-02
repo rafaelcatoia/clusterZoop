@@ -23,14 +23,6 @@ list_geo_abiotics_dists = readRDS(file = paste0(savingdir,'/','list_geo_abiotics
 grid_base = readRDS(file = paste0(savingdir,'/','grid_base'))
 
 #############################
-dim_all <- lapply(list_AitDist,dim) %>% unlist()
-table(dim_all)
-#### there are two positions for which the dimension is not 165, so I'm removing those
-## this might have happened because when we subset the columns (ASVs)
-## some samples may have being composed by 
-list_AitDist_clean = Filter(function(x) dim(x)[1] == 174, list_AitDist)
-
-
 ######## ---------------------------------------------------------------------
 ## Creating cluster label ####### 
 nclusters = 10
@@ -60,14 +52,19 @@ mat_cluster_membership_label <- cbind.data.frame(
   v3_pam=cluster::pam(x=D3,k = nclusters,cluster.only = T),
   v4_pam=cluster::pam(x=D4,k = nclusters,cluster.only = T)
 )
-
 ######## ---------------------------------------------------------------------
 
 #list_cluster_membership_and_bounderies = lapply(list_AitDist_clean[1:100],coloring_map)
 #saveRDS(list_cluster_membership_and_bounderies,file = paste0(savingdir,'/','list_cluster_membership_and_bounderies'))
 
+
+##
+## ----------------------------------------------------------------------------- 10 neigh
+##
+
+
 list_cluster_membership_and_bounderies_mirroredLat_matched = parallel::mclapply(
-  list_AitDist_clean[1:10],
+  list_AitDist,
   function(x){coloring_map_matching(
     D = x,latMirrored = T,nclusters = 10,
     trueClusterMembership = mat_cluster_membership_label,
@@ -78,27 +75,37 @@ list_cluster_membership_and_bounderies_mirroredLat_matched = parallel::mclapply(
 saveRDS(list_cluster_membership_and_bounderies_mirroredLat_matched,
         file = paste0(savingdir,'/','list_cluster_membership_and_bounderies_mirroredLat_matched'))
 
-#
-#saveRDS(df_clustRegion,paste0(savingdir,'/',"df_clustRegion"))
-#saveRDS(df_Limits,paste0(savingdir,'/',"df_Limits"))
+##
+## ----------------------------------------------------------------------------- 5 neigh
+##
 
 
+list_cluster_membership_and_bounderies_mirroredLat_matched_n5 = parallel::mclapply(
+  list_AitDist,
+  function(x){coloring_map_matching(
+    D = x,latMirrored = T,nclusters = 10,
+    trueClusterMembership = mat_cluster_membership_label,
+    list_dist_toMatch=list_geo_abiotics_dists,
+    gbase = grid_base %>% select(lat_grid,depth_grid,n_neighs01,n_neighs02,n_neighs03,n_neighs04,n_neighs05),
+    list_normalized_dist = list_normalized_geo_abiotics_dists)},mc.cores = 10)
+
+saveRDS(list_cluster_membership_and_bounderies_mirroredLat_matched_n5,
+        file = paste0(savingdir,'/','list_cluster_membership_and_bounderies_mirroredLat_matched_n5'))
+
+
+##
+## ----------------------------------------------------------------------------- 3 neigh
+##
 
 ## three neigh
-list_cluster_membership_and_bounderies_mirroredLat_matched = parallel::mclapply(
-  list_AitDist_clean[1:100],
+list_cluster_membership_and_bounderies_mirroredLat_matched_n3 = parallel::mclapply(
+  list_AitDist,
   function(x){coloring_map_matching(
     D = x,latMirrored = T,nclusters = 10,
     trueClusterMembership = mat_cluster_membership_label,
     list_dist_toMatch=list_geo_abiotics_dists,
-    gbase = grid_base,
+    gbase = grid_base %>% select(lat_grid,depth_grid,n_neighs01,n_neighs02,n_neighs03),
     list_normalized_dist = list_normalized_geo_abiotics_dists)},mc.cores = 10)
 
-saveRDS(list_cluster_membership_and_bounderies_mirroredLat_matched,
-        file = paste0(savingdir,'/','list_cluster_membership_and_bounderies_mirroredLat_matched'))
-
-#list_cluster_membership_and_bounderies_mirroredLat_matched = readRDS(file = paste0(savingdir,'/','list_cluster_membership_and_bounderies_mirroredLat_matched'))
-#clust_member_limits = unlist_coloring_obj(list_cluster_membership_and_bounderies_mirroredLat_matched[1:10])
-#plt2 = gen_plots(gridBase = grid_base,clustMemLim = clust_member_limits,df_GeoAbio = df_geo_abiotics)
-#plt2$limits_faceted
-#plt2$clustRegion_facetd
+saveRDS(list_cluster_membership_and_bounderies_mirroredLat_matched_n3,
+        file = paste0(savingdir,'/','list_cluster_membership_and_bounderies_mirroredLat_matched_n3'))
